@@ -72,6 +72,8 @@ class pydict(collections.MutableMapping):
             elif item.is_dummy() and free is None:
                 free = item
 
+            perturb >>= 5
+
     def __len__(self):
         return self._used
 
