@@ -1,35 +1,44 @@
 import collections
 
 
-null = object()
 dummy = object()
 
 
 class Item(object):
-    __slots__ = ['key', 'value']
+    __slots__ = ['hash', 'key', 'value']
 
     def __init__(self):
-        self.key = null
+        self.hash = None
+        self.key = None
         self.value = None
 
     def __repr__(self):
-        return '<Item(key={}, value={})>'.format(self.key, self.value)
+        if self.is_null():
+            args = 'null'
+        elif self.is_dummy():
+            args = 'dummy'
+        else:
+            args = 'key={}, value={}'.format(self.key, self.value)
+
+        return '<Item({})>'.format(args)
 
     def is_null(self):
-        return self.key is null
+        return self.hash is None
 
     def is_dummy(self):
-        return self.key is dummy
+        return self.hash is dummy
 
     def is_set(self):
         return not (self.is_null() or self.is_dummy())
 
-    def set(self, key, value):
+    def set(self, h, key, value):
+        self.hash = h
         self.key = key
         self.value = value
 
     def unset(self):
-        self.key = dummy
+        self.hash = dummy
+        self.key = None
         self.value = None
 
 
@@ -44,12 +53,11 @@ class pydict(collections.MutableMapping):
         self._mask = n - 1
         self._table = [Item() for _ in xrange(n)]
 
-    def _find(self, key):
-        h = hash(key)
+    def _find(self, key, h):
         i = h & self._mask
         item = self._table[i]
 
-        if item.is_null() or item.key == key:
+        if item.is_null() or (item.hash == h and item.key == key):
             return item
         elif item.is_dummy():
             free = item
@@ -67,7 +75,7 @@ class pydict(collections.MutableMapping):
                     return free
                 else:
                     return item
-            elif item.key == key:
+            elif item.hash == h and item.key == key:
                 return item
             elif item.is_dummy() and free is None:
                 free = item
@@ -78,7 +86,7 @@ class pydict(collections.MutableMapping):
         return self._used
 
     def __getitem__(self, key):
-        item = self._find(key)
+        item = self._find(key, hash(key))
 
         if item.is_set():
             return item.value
@@ -93,16 +101,17 @@ class pydict(collections.MutableMapping):
             for key, value in items:
                 self.__setitem__(key, value)
 
-        item = self._find(key)
+        h = hash(key)
+        item = self._find(key, h)
 
         if not item.is_set():
             self._used += 1
             self._remaining -= 1
 
-        item.set(key, value)
+        item.set(h, key, value)
 
     def __delitem__(self, key):
-        item = self._find(key)
+        item = self._find(key, hash(key))
 
         if item.is_set():
             item.unset()
