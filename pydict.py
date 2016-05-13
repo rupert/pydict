@@ -41,6 +41,9 @@ class Item(object):
         self.key = None
         self.value = None
 
+    def equals(self, h, key):
+        return self.hash == h and self.key == key
+
 
 class pydict(collections.MutableMapping):
     def __init__(self):
@@ -53,11 +56,11 @@ class pydict(collections.MutableMapping):
         self._mask = n - 1
         self._table = [Item() for _ in xrange(n)]
 
-    def _find(self, key, h):
+    def _find(self, h, key):
         i = h & self._mask
         item = self._table[i]
 
-        if item.is_null() or (item.hash == h and item.key == key):
+        if item.is_null() or item.equals(h, key):
             return item
         elif item.is_dummy():
             free = item
@@ -75,7 +78,7 @@ class pydict(collections.MutableMapping):
                     return free
                 else:
                     return item
-            elif item.hash == h and item.key == key:
+            elif item.equals(h, key):
                 return item
             elif item.is_dummy() and free is None:
                 free = item
@@ -86,7 +89,7 @@ class pydict(collections.MutableMapping):
         return self._used
 
     def __getitem__(self, key):
-        item = self._find(key, hash(key))
+        item = self._find(hash(key), key)
 
         if item.is_set():
             return item.value
@@ -102,7 +105,7 @@ class pydict(collections.MutableMapping):
                 self.__setitem__(key, value)
 
         h = hash(key)
-        item = self._find(key, h)
+        item = self._find(h, key)
 
         if not item.is_set():
             self._used += 1
@@ -111,7 +114,7 @@ class pydict(collections.MutableMapping):
         item.set(h, key, value)
 
     def __delitem__(self, key):
-        item = self._find(key, hash(key))
+        item = self._find(hash(key), key)
 
         if item.is_set():
             item.unset()
